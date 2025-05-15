@@ -25,6 +25,8 @@ ENV GOROOT="/usr/local/go"
 ENV GOPATH=$HOME/go
 ENV PATH="${PATH}:${GOROOT}/bin:${GOPATH}/bin"
 
+RUN sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn\/ubuntu/g' /etc/apt/sources.list
+
 # Install Python
 RUN apt update -y && \
     apt install -y \
@@ -56,7 +58,7 @@ RUN apt install -y --no-install-recommends \
 RUN add-apt-repository ppa:mozillateam/ppa
 
 RUN ARCH=$(dpkg --print-architecture) \ 
-    && curl -L https://go.dev/dl/go${GOVERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local
+    && curl -L https://mirrors.aliyun.com/golang/go${GOVERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local
 
 RUN ARCH=$(dpkg --print-architecture) \ 
     && if [ "${ARCH}" = "arm64" ]; then \
@@ -70,7 +72,9 @@ RUN ARCH=$(dpkg --print-architecture) \
     && mv geckodriver /usr/bin
 
 # Install Rust for orjson
-RUN set -e; curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN set -e; curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust.sh 
+RUN sed -i 's@static.rust-lang.org@mirrors.tuna.tsinghua.edu.cn@g' rust.sh 
+RUN /bin/sh -c sh rust.sh -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip3 install maturin
 
@@ -78,6 +82,9 @@ RUN pip3 install maturin
 WORKDIR /usr/src/app
 
 ENV GO111MODULE=on 
+
+RUN go env -w GOPROXY=https://goproxy.cn,direct
+
 RUN printf "\
     github.com/jaeles-project/gospider@latest\n\
     github.com/tomnomnom/gf@latest\n\
@@ -109,6 +116,9 @@ RUN chaos -update
 
 # Copy requirements
 COPY ./requirements.txt /tmp/requirements.txt
+RUN pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
+    && pip3 config set install.trusted-host mirrors.aliyun.com
+
 RUN pip3 install --upgrade setuptools==72.1.0
 RUN pip3 install -r /tmp/requirements.txt --no-cache-dir
 
